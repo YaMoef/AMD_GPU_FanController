@@ -3,30 +3,26 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection.Emit;
-using System.Threading;
-//using Microsoft.VisualBasic.FileIO;
+using Microsoft.VisualBasic.FileIO;
 
 namespace AMDFanController
 {
     class Program
     {
-        enum FanStates {Maximum,Manual,Automatic};
-        enum SensorTypes {input,label,crit,crit_hyst,emergency};
         private static string CardLocation = "";
         static void Main(string[] args)
         {
             CardLocation = GetGPULocation();
             SetFanMode(FanStates.Manual);
-            //byte speed = GPUTemp();
+            byte speed = GPUTemp();
             while (true)
             {
-                Thread.Sleep(1000);
+                System.Threading.Thread.Sleep(1000);
                 Console.Clear();
-                byte DestinationSpeed = SpeedTemp(GPUTemp(1));
-                Console.WriteLine(GPUTempString(1));
-                Console.WriteLine(GPUTempString(2));
-                Console.WriteLine(GPUTempString(3));
-                Console.WriteLine($"speed\n\tcurrent speed is:\t{DestinationSpeed}\t maximum speed is:\t255");
+                var Temperature = GPUTemp();
+                var DestinationSpeed = SpeedTemp(Temperature);
+                Console.WriteLine("Temperature:   " + Temperature);
+                Console.WriteLine("Speed (0-255): " + DestinationSpeed);
                 SetFanSpeed(DestinationSpeed);
             }
         }
@@ -48,36 +44,26 @@ namespace AMDFanController
             string p = speed.ToString();
             File.WriteAllText(CardLocation + "pwm1", p);
         }
-        static void SetFanMode(FanStates mode)
+        static void SetFanMode(int mode)
         {
             Console.WriteLine("Setting GPU Control");
             string PWM1_Enable = CardLocation + "pwm1_enable";
-            File.WriteAllText(PWM1_Enable, ((int)mode).ToString());
+            File.WriteAllText(PWM1_Enable, mode.ToString());
         }
 
-        static string GetGPUData(int SensorNumber, SensorTypes Type){
-            return File.ReadAllText($"{CardLocation}temp{SensorNumber}_{Type.ToString()}");
-        }
-
-        static byte GPUTemp(int SensorNumber, SensorTypes Type=SensorTypes.input){
-            string temp = GetGPUData(SensorNumber,Type);
+        static byte GPUTemp()
+        {
+            string temp = File.ReadAllText(CardLocation + "/temp1_input");
             int temperature = int.Parse(temp) / 1000;
             byte final = Convert.ToByte(temperature);
             return final;
         }
-        static string RemoveEndEnter(string input){
-            char[] arr=input.ToCharArray();
-            input="";
-            for (int i = 0; i < arr.Length-1; i++)
-            {
-                input+=arr[i].ToString();
-            }
-            return input;
-        }
-        static string GPUTempString(int SensorNumber){
-            string temp = "";
-            temp+=$"{RemoveEndEnter(GetGPUData(SensorNumber,SensorTypes.label))}\n\t current temperature is:\t{GPUTemp(SensorNumber)}°C\t critical temperature is:\t{GPUTemp(SensorNumber,SensorTypes.emergency)}°C";
-            return temp;
+
+        public static class FanStates
+        {
+            public const int Maximum = 0;
+            public const int Manual = 1;
+            public const int Automatic = 2;
         }
     }
 }
